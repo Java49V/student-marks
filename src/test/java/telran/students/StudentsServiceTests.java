@@ -73,8 +73,6 @@ class StudentsServiceTests {
         assertEquals(newPhone, updatedStudent.phone());
         verify(studentRepo, times(1)).save(any(StudentDoc.class));
     }
-
-////
     
     @Test
     void removeExistingStudentTest() {
@@ -123,7 +121,6 @@ class StudentsServiceTests {
     }
 
 
-////
     
     @Test
     void addMarkToNonExistingStudentTest() {
