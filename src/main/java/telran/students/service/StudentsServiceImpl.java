@@ -1,8 +1,6 @@
 package telran.students.service;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,18 +14,16 @@ import telran.students.dto.Mark;
 import telran.students.dto.Student;
 import telran.students.model.StudentDoc;
 import telran.students.repo.StudentRepo;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class StudentsServiceImpl implements StudentsService {
-	final StudentRepo studentRepo;
-
+final StudentRepo studentRepo;
 	@Override
 	@Transactional
 	public Student addStudent(Student student) {
 		long id = student.id();
-		if (studentRepo.existsById(id)) {
+		if(studentRepo.existsById(id)) {
 			throw new IllegalStateException(String.format("Student %d already exists", id));
 		}
 		studentRepo.save(StudentDoc.of(student));
@@ -65,8 +61,8 @@ public class StudentsServiceImpl implements StudentsService {
 	@Transactional
 	public Student removeStudent(long id) {
 		StudentDoc studentDoc = studentRepo.findStudentNoMarks(id);
-		if (studentDoc == null) {
-			throw new NotFoundException(String.format("student %d not found", id));
+		if(studentDoc == null) {
+			throw new NotFoundException(String.format("student %d not found",id));
 		}
 		studentRepo.deleteById(id);
 		log.debug("removed student {}, marks {} ", id, studentDoc.getMarks());
@@ -77,11 +73,11 @@ public class StudentsServiceImpl implements StudentsService {
 	@Transactional(readOnly = true)
 	public List<Mark> getMarks(long id) {
 		StudentDoc studentDoc = studentRepo.findStudentMarks(id);
-		if (studentDoc == null) {
-			throw new NotFoundException(String.format("student %d not found", id));
+		if(studentDoc == null) {
+			throw new NotFoundException(String.format("student %d not found",id));
 		}
-		log.debug("id {}, name {}, phone {}, marks {}", studentDoc.getId(), studentDoc.getName(), studentDoc.getPhone(),
-				studentDoc.getMarks());
+		log.debug("id {}, name {}, phone {}, marks {}",
+				studentDoc.getId(), studentDoc.getName(), studentDoc.getPhone(), studentDoc.getMarks());
 		return studentDoc.getMarks();
 	}
 
@@ -97,13 +93,14 @@ public class StudentsServiceImpl implements StudentsService {
 
 	@Override
 	public List<Student> getStudentsByPhonePrefix(String phonePrefix) {
-		List<IdNamePhone> students = studentRepo.findByPhoneRegex(phonePrefix + ".+");
+		List <IdNamePhone> students = studentRepo.findByPhoneRegex(phonePrefix + ".+");
 		log.debug("number of the students having phone prefix {} is {}", phonePrefix, students.size());
 		return getStudents(students);
 	}
 
 	private List<Student> getStudents(List<IdNamePhone> students) {
-		return students.stream().map(inp -> new Student(inp.getId(), inp.getName(), inp.getPhone())).toList();
+		return students.stream().map(inp -> new Student(inp.getId(), inp.getName(),
+				inp.getPhone())).toList();
 	}
 
 	@Override
@@ -117,38 +114,17 @@ public class StudentsServiceImpl implements StudentsService {
 		List<IdNamePhone> students = studentRepo.findByFewMarks(thresholdMarks);
 		return getStudents(students);
 	}
-
+	
 	@Override
 	public List<Student> getStudentsAllGoodMarksSubject(String subject, int thresholdScore) {
-		List<Student> result = new ArrayList<>();
-		List<StudentDoc> allStudents = studentRepo.findAll();
-
-		for (StudentDoc studentDoc : allStudents) {
-			boolean hasGoodMarksForSubject = studentDoc.getMarks().stream()
-					.anyMatch(mark -> subject.equals(mark.subject()) && mark.score() >= thresholdScore);
-
-			if (hasGoodMarksForSubject) {
-				result.add(studentDoc.build());
-			}
-		}
-
-		return result;
+	List<IdNamePhone> students = studentRepo.findBySubjectAndScore(subject, thresholdScore);
+	return getStudents(students);
 	}
-
+	
 	@Override
 	public List<Student> getStudentsMarksAmountBetween(int min, int max) {
-		List<Student> result = new ArrayList<>();
-		List<StudentDoc> allStudents = studentRepo.findAll();
-
-		for (StudentDoc studentDoc : allStudents) {
-			int numMarks = studentDoc.getMarks().size();
-
-			if (numMarks >= min && numMarks <= max) {
-				result.add(studentDoc.build());
-			}
-		}
-
-		return result;
+	List<IdNamePhone> students = studentRepo.findStudentsMarksAmountBetween(min, max);
+	return getStudents(students);
 	}
 
 }
