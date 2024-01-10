@@ -17,21 +17,23 @@ import telran.students.dto.Mark;
 import telran.students.dto.Student;
 import telran.students.repo.StudentRepo;
 import telran.students.service.StudentsService;
+
 @SpringBootTest
 class StudentsServiceTests {
 	@Autowired
-StudentsService studentsService;
+	StudentsService studentsService;
 	@Autowired
 	DbTestCreation dbCreation;
 	@Autowired
-StudentRepo studentRepo;
+	StudentRepo studentRepo;
 	@MockBean
 	MongoTransactionManager transactionManager;
+
 	@BeforeEach
 	void setUp() {
 		dbCreation.createDB();
 	}
-	
+
 	@Test
 	void getMarksTest() {
 		Mark[] marksActual = studentsService.getMarks(1).toArray(Mark[]::new);
@@ -39,13 +41,15 @@ StudentRepo studentRepo;
 		assertArrayEquals(marksExpected, marksActual);
 		assertThrowsExactly(NotFoundException.class, () -> studentsService.getMarks(10000000));
 	}
+
 	@Test
 	void removeStudentTest() {
 		assertNotNull(studentRepo.findById(1l).orElse(null));
 		assertEquals(dbCreation.getStudent(1), studentsService.removeStudent(1));
 		assertNull(studentRepo.findById(1l).orElse(null));
-		assertThrowsExactly(NotFoundException.class, ()->studentsService.removeStudent(1));
+		assertThrowsExactly(NotFoundException.class, () -> studentsService.removeStudent(1));
 	}
+
 	@Test
 	void addMarkTest() {
 		List<Mark> marksStudent2Expected = new ArrayList<>(Arrays.asList(dbCreation.getStudentMarks(2)));
@@ -55,7 +59,7 @@ StudentRepo studentRepo;
 		assertIterableEquals(marksStudent2Expected, studentsService.getMarks(2));
 		assertThrowsExactly(NotFoundException.class, () -> studentsService.addMark(0, mark));
 	}
-	
+
 	@Test
 	void updatePhoneTest() {
 		Student student3 = dbCreation.getStudent(3);
@@ -66,6 +70,7 @@ StudentRepo studentRepo;
 		assertEquals(expected, actual);
 		assertThrowsExactly(NotFoundException.class, () -> studentsService.updatePhone(0, newPhone));
 	}
+
 	@Test
 	void addStudentTest() {
 		Student studentExisting = dbCreation.getStudent(4);
@@ -73,17 +78,17 @@ StudentRepo studentRepo;
 		assertEquals(newStudent, studentsService.addStudent(newStudent));
 		Student actual = studentRepo.findById(-1l).orElseThrow().build();
 		assertEquals(newStudent, actual);
-		assertThrowsExactly(IllegalStateException.class,
-				()-> studentsService.addStudent(studentExisting));
-		assertThrowsExactly(IllegalStateException.class,
-				()-> studentsService.addStudent(newStudent));
+		assertThrowsExactly(IllegalStateException.class, () -> studentsService.addStudent(studentExisting));
+		assertThrowsExactly(IllegalStateException.class, () -> studentsService.addStudent(newStudent));
 	}
+
 	@Test
 	void getStudentPhoneTest() {
 		Student student2 = dbCreation.getStudent(2);
 		assertEquals(student2, studentsService.getStudentByPhone(DbTestCreation.PONE_2));
 		assertNull(studentsService.getStudentByPhone("kuku"));
 	}
+
 	@Test
 	void getStudentsPhonePrefixTest() {
 		List<Student> expected = List.of(dbCreation.getStudent(2));
@@ -92,6 +97,7 @@ StudentRepo studentRepo;
 		assertIterableEquals(expected, actual);
 		assertTrue(studentsService.getStudentsByPhonePrefix("kuku").isEmpty());
 	}
+
 	@Test
 	void getGoodStudentsTest() {
 		List<Student> expected = List.of(dbCreation.getStudent(4), dbCreation.getStudent(6));
@@ -99,6 +105,7 @@ StudentRepo studentRepo;
 		assertIterableEquals(expected, actual);
 		assertTrue(studentsService.getStudentsAllGoodMarks(100).isEmpty());
 	}
+
 	@Test
 	void getStudentsFewMarksTest() {
 		List<Student> expected = List.of(dbCreation.getStudent(2), dbCreation.getStudent(7));
@@ -106,15 +113,19 @@ StudentRepo studentRepo;
 		assertIterableEquals(expected, actual);
 		assertTrue(studentsService.getStudentsFewMarks(0).isEmpty());
 	}
+
 	@Test
-	void getGoodStudentsSubjectTest() {
-		//TODO
-		
+	void getStudentsAllGoodMarksSubjectTest() {
+		List<Student> expected = List.of(dbCreation.getStudent(4));
+		List<Student> actual = studentsService.getStudentsAllGoodMarksSubject(DbTestCreation.SUBJECT_1, 80);
+		assertIterableEquals(expected, actual);
 	}
+
 	@Test
-	void getStudentsMarksAmountBetween() {
-		//TODO
+	void getStudentsMarksAmountBetweenTest() {
+		List<Student> expected = List.of(dbCreation.getStudent(2));
+		List<Student> actual = studentsService.getStudentsMarksAmountBetween(1, 3);
+		assertIterableEquals(expected, actual);
 	}
-	
 
 }
