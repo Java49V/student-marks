@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.*;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -141,18 +142,30 @@ StudentRepo studentRepo;
 		List<NameAvgScore> actual = studentsService.getStudentAvgScoreGreater(90);
 		assertIterableEquals(expected, actual);
 	}
+
 	@Test
 	void getStudentMarksAtDatesTest() {
-		//TODO
+		List<Mark> expected = List.of(dbCreation.marks[5][0], dbCreation.marks[5][1]);
+		List<Mark> actual = studentsService.getStudentMarksAtDates(DbTestCreation.ID_6, DbTestCreation.DATE_1, DbTestCreation.DATE_2);
+		assertIterableEquals(expected, actual);
+		assertTrue(studentsService.getStudentMarksAtDates(DbTestCreation.ID_2, DbTestCreation.DATE_2, DbTestCreation.DATE_3).isEmpty());
 	}
+
+
 	@Test
 	void getBestStudentsTest() {
-		//TODO
+	    List<String> expected = Collections.emptyList();
+	    List<String> actual = studentsService.getBestStudents(2);
+	    assertIterableEquals(expected, actual);
 	}
+
 	@Test
 	void getWorstStudentsTest() {
-		//TODO
+	    List<String> expected = Collections.emptyList();
+	    List<String> actual = studentsService.getWorstStudents(2);
+	    assertIterableEquals(expected, actual);
 	}
+	
 	
 
 }

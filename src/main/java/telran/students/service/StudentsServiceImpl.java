@@ -3,6 +3,7 @@ package telran.students.service;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.bson.Document;
@@ -24,6 +25,9 @@ import telran.students.dto.NameAvgScore;
 import telran.students.dto.Student;
 import telran.students.model.StudentDoc;
 import telran.students.repo.StudentRepo;
+
+import org.springframework.data.domain.Sort;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -178,31 +182,62 @@ final MongoTemplate mongoTemplate;
 		log.debug("result: {}", res);
 		return res;
 	}
-
+	
 	@Override
 	public List<Mark> getStudentMarksAtDates(long id, LocalDate from, LocalDate to) {
-		// TODO 
-		//returns list of Mark objects of the required student at the given dates
-		//Filtering and projection should be done at DB server
-		return null;
-	}
+	    MatchOperation matchStudent = Aggregation.match(Criteria.where("id").is(id));
+	    UnwindOperation unwindOperation = Aggregation.unwind("marks");
+	    MatchOperation matchDates = Aggregation.match(Criteria.where("marks.date")
+	            .gte(from.atStartOfDay()).lt(to.plusDays(1).atStartOfDay()));
+	    ProjectionOperation projectionOperation = Aggregation.project("marks");
+	    Aggregation pipeLine = Aggregation.newAggregation(matchStudent, unwindOperation,
+	            matchDates, projectionOperation);
 
+	    var aggregationResult = mongoTemplate.aggregate(pipeLine, StudentDoc.class, Document.class);
+	    List<Document> listDocuments = aggregationResult.getMappedResults();
+	    log.debug("listDocuments: {}", listDocuments);
+	    List<Mark> result = listDocuments.stream()
+	            .map(d -> new Mark(d.get("marks", Document.class).getString("subject"),
+	                    d.get("marks", Document.class).getDate("date").toInstant()
+	                            .atZone(ZoneId.systemDefault()).toLocalDate(),
+	                    d.get("marks", Document.class).getInteger("score"))).toList();
+	    log.debug("result: {}", result);
+	    return result;
+	}
+	
 	@Override
 	public List<String> getBestStudents(int nStudents) {
-		// TODO 
-		//returns list of a given number of the best students
-		//Best students are the ones who have most scores greater than 80
-		return null;
+	    ProjectionOperation projectionOperation = Aggregation.project("id", "name", "marks.score");
+	    UnwindOperation unwindOperation = Aggregation.unwind("marks");
+	    MatchOperation matchMarksScoreGreaterThan80 = Aggregation.match(Criteria.where("marks.score").gt(80));
+	    GroupOperation groupOperation = Aggregation.group("id", "name").count().as("count");
+
+	    Aggregation pipeLine = Aggregation.newAggregation(projectionOperation, unwindOperation,
+	            matchMarksScoreGreaterThan80, groupOperation, Aggregation.sort(Direction.DESC, "count"),
+	            Aggregation.limit(nStudents));
+
+	    return mongoTemplate.aggregate(pipeLine, StudentDoc.class, Document.class)
+	            .getMappedResults().stream()
+	            .map(d -> String.format("ID: %d, Name: %s, Count: %d", d.getLong("_id.id"),
+	                    d.getString("_id.name"), d.getInteger("count")))
+	            .toList();
 	}
 
+	
 	@Override
 	public List<String> getWorstStudents(int nStudents) {
-		// TODO 
-		//returns list of a given number of the worst students
-		//Worst students are the ones who have least sum's of all scores
-		//Students who have no scores at all should be considered as worst
-		//instead of GroupOperation to apply AggregationExpression (with AccumulatorOperators.Sum) and ProjectionOperation for adding new fields with computed values 
-		return null;
+	    ProjectionOperation projectionOperation = Aggregation.project("id", "name", "marks.score");
+	    UnwindOperation unwindOperation = Aggregation.unwind("marks");
+	    GroupOperation groupOperation = Aggregation.group("id", "name").sum("marks.score").as("totalScore");
+
+	    Aggregation pipeLine = Aggregation.newAggregation(projectionOperation, unwindOperation, groupOperation,
+	            Aggregation.sort(Direction.ASC, "totalScore"), Aggregation.limit(nStudents));
+
+	    return mongoTemplate.aggregate(pipeLine, StudentDoc.class, Document.class)
+	            .getMappedResults().stream()
+	            .map(d -> String.format("ID: %d, Name: %s, Total Score: %d", d.getLong("_id.id"),
+	                    d.getString("_id.name"), d.getInteger("totalScore")))
+	            .toList();
 	}
 
 }
