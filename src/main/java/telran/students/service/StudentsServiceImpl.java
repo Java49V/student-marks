@@ -1,7 +1,15 @@
 package telran.students.service;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Collections;
 import java.util.List;
 
+import org.bson.Document;
+import org.springframework.data.domain.Sort.Direction;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.*;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +19,8 @@ import telran.exceptions.NotFoundException;
 import telran.students.dto.IdName;
 import telran.students.dto.IdNamePhone;
 import telran.students.dto.Mark;
+import telran.students.dto.MarksOnly;
+import telran.students.dto.NameAvgScore;
 import telran.students.dto.Student;
 import telran.students.model.StudentDoc;
 import telran.students.repo.StudentRepo;
@@ -19,6 +29,7 @@ import telran.students.repo.StudentRepo;
 @RequiredArgsConstructor
 public class StudentsServiceImpl implements StudentsService {
 final StudentRepo studentRepo;
+final MongoTemplate mongoTemplate;
 	@Override
 	@Transactional
 	public Student addStudent(Student student) {
@@ -114,17 +125,84 @@ final StudentRepo studentRepo;
 		List<IdNamePhone> students = studentRepo.findByFewMarks(thresholdMarks);
 		return getStudents(students);
 	}
-	
+
 	@Override
 	public List<Student> getStudentsAllGoodMarksSubject(String subject, int thresholdScore) {
-	List<IdNamePhone> students = studentRepo.findBySubjectAndScore(subject, thresholdScore);
-	return getStudents(students);
+		//getting students who have at least one score of a given subject and all scores of that subject
+		//greater than or equal a given threshold
+		List<IdNamePhone> students = studentRepo.findByGoodMarksSubject(subject, thresholdScore);
+		return getStudents(students);
 	}
-	
+
 	@Override
 	public List<Student> getStudentsMarksAmountBetween(int min, int max) {
-	List<IdNamePhone> students = studentRepo.findStudentsMarksAmountBetween(min, max);
-	return getStudents(students);
+		//getting students having number of marks in a closed range of the given values
+		//nMarks >= min && nMarks <= max
+		List<IdNamePhone> students = studentRepo.findByRangeMarks(min, max);
+		return getStudents(students);
+	}
+
+	@Override
+	public List<Mark> getStudentSubjectMarks(long id, String subject) {
+		if (!studentRepo.existsById(id)) {
+			throw new NotFoundException(String.format("student with id %d not found", id));
+		}
+		MatchOperation matchStudent = Aggregation.match(Criteria.where("id").is(id));
+		UnwindOperation unwindOperation = Aggregation.unwind("marks");
+		MatchOperation matchMarksSubject = Aggregation.match(Criteria.where("marks.subject").is(subject));
+		ProjectionOperation projectionOperation = Aggregation.project("marks.score", "marks.date");
+		Aggregation pipeLine = Aggregation.newAggregation(matchStudent, unwindOperation,
+				matchMarksSubject, projectionOperation);
+		var aggregationResult = mongoTemplate.aggregate(pipeLine, StudentDoc.class, Document.class);
+		List<Document> listDocuments = aggregationResult.getMappedResults();
+		log.debug("listDocuments: {}", listDocuments);
+		List<Mark> result = listDocuments.stream()
+				.map(d -> new Mark(subject, d.getDate("date").toInstant()
+						.atZone(ZoneId.systemDefault()).toLocalDate(), d.getInteger("score"))).toList();
+				;
+		log.debug("result: {}", result);
+		return result;		
+	}
+
+	@Override
+	public List<NameAvgScore> getStudentAvgScoreGreater(int avgScoreThreshold) {
+		UnwindOperation unwindOperation = Aggregation.unwind("marks");
+		GroupOperation groupOperation = Aggregation.group("name").avg("marks.score").as("avgMark");
+		MatchOperation matchOperation = Aggregation.match(Criteria.where("avgMark").gt(avgScoreThreshold));
+		SortOperation sortOperation = Aggregation.sort(Direction.DESC, "avgMark");
+		Aggregation pipeLine = Aggregation.newAggregation(unwindOperation, groupOperation, matchOperation, sortOperation);
+		
+		List<NameAvgScore> res = mongoTemplate.aggregate(pipeLine, StudentDoc.class, Document.class)
+				.getMappedResults().stream().map(d -> new NameAvgScore(d.getString("_id"),
+						d.getDouble("avgMark").intValue())).toList();
+		log.debug("result: {}", res);
+		return res;
+	}
+
+	@Override
+	public List<Mark> getStudentMarksAtDates(long id, LocalDate from, LocalDate to) {
+		// TODO 
+		//returns list of Mark objects of the required student at the given dates
+		//Filtering and projection should be done at DB server
+		return null;
+	}
+
+	@Override
+	public List<String> getBestStudents(int nStudents) {
+		// TODO 
+		//returns list of a given number of the best students
+		//Best students are the ones who have most scores greater than 80
+		return null;
+	}
+
+	@Override
+	public List<String> getWorstStudents(int nStudents) {
+		// TODO 
+		//returns list of a given number of the worst students
+		//Worst students are the ones who have least sum's of all scores
+		//Students who have no scores at all should be considered as worst
+		//instead of GroupOperation to apply AggregationExpression (with AccumulatorOperators.Sum) and ProjectionOperation for adding new fields with computed values 
+		return null;
 	}
 
 }

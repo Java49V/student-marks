@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.repository.Query;
 
 import telran.students.dto.IdName;
 import telran.students.dto.IdNamePhone;
+import telran.students.dto.MarksOnly;
 import telran.students.model.StudentDoc;
 
 public interface StudentRepo extends MongoRepository<StudentDoc, Long> {
@@ -25,15 +26,14 @@ public interface StudentRepo extends MongoRepository<StudentDoc, Long> {
 	/***************************************************************/
 	@Query(value="{$expr:{$lt:[{$size:$marks}, ?0 ]}}")
 	List<IdNamePhone> findByFewMarks(int thresholdMarks);
-	
-	@Query(value="{ $and: [ { 'marks.subject': ?0 }, { 'marks.score': { $gte: ?1 } } ] }", fields = "{marks: 1, id: 1, name: 1, phone: 1}")
-	List<IdNamePhone> findStudentsAllGoodMarksSubject(String subject, int thresholdScore);
-
-	@Query(value="{ $expr: { $and: [ { $gte: [ { $size: '$marks' }, ?0 ] }, { $lte: [ { $size: '$marks' }, ?1 ] } ] } }", fields = "{marks: 1, id: 1, name: 1, phone: 1}")
-	List<IdNamePhone> findStudentsMarksAmountBetween(int min, int max);
-	
-	@Query(value="{marks: {$elemMatch:{subject:?0, score:{$gte:?1}}}}")
-	List<IdNamePhone> findBySubjectAndScore(String subject, int thresholdScore);
-	
+	/**************************************************************/
+	@Query(value="{$and:[{marks: {$elemMatch:{subject: ?0,score:{$gte:?1}}}},"
+			+ " {marks: {$not:{$elemMatch:{subject: ?0,score:{$lt:?1}}}}}]}")
+	List<IdNamePhone> findByGoodMarksSubject(String subject, int thresholdScore);
+	/**********************************************************************/
+	@Query(value="{$expr:{$and:[{$gte: [ { $size: $marks }, ?0 ] }, {$lte:[{$size:$marks},?1]}]}}")
+	List<IdNamePhone> findByRangeMarks(int min, int max);
+	/****************************************************************/
+	MarksOnly findByIdAndMarksSubject(long id, String subject);
 
 }
